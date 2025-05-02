@@ -9,14 +9,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
     <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script src="js/towers.js" defer></script>
 </head>
 <body class="noselect">
     <header>
-        <h1>Towers</h1>
+        <div class="header"><div class="char">T</div><div class="char">O</div><div class="char">W</div><div class="char">E</div><div class="char">R</div><div class="char">S</div></div>
+
+        <!-- <h1> -->
+            <!-- <span>Tower of Hanoi</span> -->
+             <!-- <div class="char">T</div><div class="char">o</div><div class="char">w</div><div class="char">e</div><div class="char">r</div><div class="char">s</div> -->
+
+        <!-- </h1> -->
     </header>
     <main>
         <div class="board">   
             <div class="tower">
+                <div class="rod"></div>
                 <div class="position"></div>
                 <div class="position"></div>
                 <div class="position"></div>
@@ -27,6 +35,7 @@
                 <div class="position"></div>
             </div>
             <div class="tower">
+                <div class="rod"></div>
                 <div class="position"></div>
                 <div class="position"></div>
                 <div class="position"></div>
@@ -37,6 +46,7 @@
                 <div class="position"></div>
             </div>
             <div class="tower">
+                <div class="rod"></div>
                 <div class="position"></div>
                 <div class="position"></div>
                 <div class="position"></div>
@@ -45,7 +55,17 @@
                 <div class="position"></div>
                 <div class="position"></div>
                 <div class="position"></div>
-            </div>                             
+            </div>  
+            
+            <div class="disk" id="disk1"></div>
+            <div class="disk" id="disk2"></div>
+            <div class="disk" id="disk3"></div>
+            <div class="disk" id="disk4"></div>
+            <div class="disk" id="disk5"></div>
+            <div class="disk" id="disk6"></div>
+            <div class="disk" id="disk7"></div>
+            <div class="disk" id="disk8"></div>
+
         </div>
     </main>
     <!-- <footer>
