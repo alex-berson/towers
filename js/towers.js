@@ -1,6 +1,6 @@
 const TOWERS = 3;
 const DISKS = 8;
-;
+
 const showBoard = () => document.body.style.opacity = 1;
 
 const setBoardSize = () => {
@@ -64,28 +64,52 @@ const getDisk = (tower) => {
     return topPosition ? [topPosition, topPosition.dataset.disk] : [positions[positions.length - 1], null];
 }
 
-const touchStart = (e) => {
+const startSwipe = (e) => {
 
+    let x,y;
     let board = document.querySelector('.board');
-    let touch = e.touches[e.touches.length - 1];
-    let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+
+    if (e.type == 'touchstart') {
+        x = e.touches[e.touches.length - 1].clientX;
+        y = e.touches[e.touches.length - 1].clientY;
+    } else {
+        x = e.clientX;
+        y = e.clientY;
+    }
+
+    // let touch = e.touches[e.touches.length - 1];
+    // let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    let elements = document.elementsFromPoint(x, y);
     let tower = [...elements].find(element => element.classList.contains('tower'));
-    let [position, disk] = getDisk(tower);
+    let [_, disk] = getDisk(tower);
 
     if (disk != null) tower.classList.add('from');
 
-    // let tower = getTower(touch.clientX, touch.clientY);
-
-    board.addEventListener('touchmove', touchMove);
-    board.addEventListener('touchend', touchEnd);
+    board.addEventListener('touchmove', processSwipe);
+    board.addEventListener('touchend', endSwipe);
+    board.addEventListener('mousemove', processSwipe);
+    board.addEventListener('mouseup', endSwipe);
 }
 
-const touchMove = (e) => {
+const processSwipe = (e) => {
 
-    let touch = e.touches[e.touches.length - 1];
+    let x,y;
+
+    if (e.type == 'touchmove') {
+        x = e.touches[e.touches.length - 1].clientX;
+        y = e.touches[e.touches.length - 1].clientY;
+    } else {
+        x = e.clientX;
+        y = e.clientY;
+    }
+
+    console.log(x, y);
+
+    // let touch = e.touches[e.touches.length - 1];
     let towers = document.querySelectorAll('.tower');
     let from = document.querySelector('.from');
-    let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    // let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    let elements = document.elementsFromPoint(x, y);
     let tower = [...elements].find(element => element.classList.contains('tower'));
 
     towers.forEach(tower => tower.classList.remove('to'));
@@ -95,17 +119,20 @@ const touchMove = (e) => {
     }
 }
 
-const touchEnd = (e) => {
+const endSwipe = async () => {
 
     let board = document.querySelector('.board');
     let from = document.querySelector('.from');
     let to = document.querySelector('.to');
+    let towers = document.querySelectorAll('.tower');
 
-    board.removeEventListener('touchmove', touchMove);
-    board.removeEventListener('touchend', touchEnd);
+    board.removeEventListener('touchmove', processSwipe);
+    board.removeEventListener('touchend', endSwipe);
+    board.removeEventListener('mousemove', processSwipe);
+    board.removeEventListener('mouseup', endSwipe);
 
     if (to == null) {
-        from.classList.remove('from');
+        towers.forEach(tower => tower.classList.remove('from'));
         return;
     }
 
@@ -126,26 +153,21 @@ const touchEnd = (e) => {
     let pos1Rect = position1.getBoundingClientRect();
     let pos2Rect = position2.getBoundingClientRect();
 
+    disk.classList.add('move');
+
     if (disk2 != null && disk1 < disk2) {
 
-        let offset = pos1Rect.height;
-
-        disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset}px)`;
-
-        disk.addEventListener('transitionend', () => {
-
-            disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42}px)`;
-    
-            disk.addEventListener('transitionend', () => {
+        disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - pos1Rect.height}px)`;
+        await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
         
-                from.classList.remove('from');
-                to.classList.remove('to');    
-
-                enableTouch();
-    
-            }, {once: true});
-        }, {once: true});
+        disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42}px)`;
+        await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
         
+        from.classList.remove('from');
+        to.classList.remove('to');
+        disk.classList.remove('move');
+
+        enableTouch();
         return; 
     }
 
@@ -154,38 +176,60 @@ const touchEnd = (e) => {
     let offset3 = pos1Rect.top - pos2Rect.top;
 
     disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`;
+    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+    
+    disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`;
+    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+    
+    disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`;
+    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+    
+    from.classList.remove('from');
+    to.classList.remove('to');
+    disk.classList.remove('move');
 
-    disk.addEventListener('transitionend', () => {
+    delete position1.dataset.disk;
+    position2.dataset.disk = disk1;
 
-        disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`;
+    checkWin(to) ? endGame(to) : enableTouch();
+}
 
-        disk.addEventListener('transitionend', () => {
+const checkWin = (tower) => {
 
-            disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`;
+    let towers = [...document.querySelectorAll('.tower')];
+    let index = [...towers].indexOf(tower);
+    let positions = tower.querySelectorAll('.position');
 
-            from.classList.remove('from');
-            to.classList.remove('to');
-            delete position1.dataset.disk;
-            position2.dataset.disk = disk1;
+    if (index == 0) return false;
+    
+    for (let i = 0; i < positions.length; i++) {
+        
+        if (Number(positions[i].dataset.disk) != DISKS - i - 1) {
+            return false;
+        }
+    }
 
-            enableTouch();
+    return true;
+}
 
-        }, {once: true});
-    }, {once: true});
+const endGame = (tower) => {
+
 }
 
 const enableTouch = () => {
 
     let board = document.querySelector('.board');
 
-    board.addEventListener('touchstart', touchStart);
+    board.addEventListener('touchstart', startSwipe);
+    board.addEventListener('mousedown', startSwipe);
 }
 
 const disableTouch = () => {
 
     let board = document.querySelector('.board');
 
-    board.removeEventListener('touchstart', touchStart);
+    board.removeEventListener('touchstart', startSwipe);
+    board.removeEventListener('mousedown', startSwipe);
 }
 
 const init = () => {
