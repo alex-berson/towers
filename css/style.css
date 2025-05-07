@@ -38,6 +38,10 @@ body {
     transition: opacity 2s ease;
 }
 
+.visible {
+    opacity: 1;
+}
+
 /* h1 {
     text-align: center;
     font-weight: bold;
@@ -132,7 +136,8 @@ body {
     /* border: 1px solid black; */
 }
 
-.from > .rod, .to > .rod {
+:not(.ai) > .from > .rod, :not(.ai) > .to > .rod {
+/* .from > .rod, .to > .rod { */
     background-color: darkgray;
 }
 

@@ -1,7 +1,9 @@
-const TOWERS = 3;
 const DISKS = 8;
+const TOWERS = 3;
 
-const showBoard = () => document.body.style.opacity = 1;
+const showBoard = () => document.body.classList.add('visible');
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const setBoardSize = () => {
 
@@ -65,6 +67,8 @@ const getDisk = (tower) => {
 }
 
 const startSwipe = (e) => {
+
+    if (aiMode()) return;
 
     let x,y;
     let board = document.querySelector('.board');
@@ -216,6 +220,55 @@ const endGame = (tower) => {
 
 }
 
+const aiPlay = async () => {
+
+    const solvePuzzle =  (n, source, destination, auxiliary) => {
+
+        if (n == 0) return;
+    
+        solvePuzzle(n - 1, source, auxiliary, destination);
+
+        moves.push([source, destination]);
+        
+        solvePuzzle(n - 1, auxiliary, destination, source);
+    }
+
+    let moves = [];
+    let board = document.querySelector('.board');
+    let towers = [...document.querySelectorAll('.tower')];
+
+    board.classList.add('ai');
+
+    solvePuzzle(DISKS, 0, 2, 1);
+
+    let start = performance.now();
+
+    for (let move of moves) {
+
+        towers[move[0]].classList.add('from');
+        towers[move[1]].classList.add('to');
+        
+        await endSwipe();
+        // await sleep(200);
+    }
+
+    let end = performance.now();
+    let time = Math.floor((end - start) / 1000);
+
+    console.log(`AI took ${time} seconds to solve the puzzle`);
+}
+
+const aiMode = () => {
+
+    let queryString = window.location.search;
+    let urlParams = new URLSearchParams(queryString);
+    let mode = urlParams.get('mode');
+    
+    // return mode == 'ai';
+
+    return true;
+}
+
 const enableTouch = () => {
 
     let board = document.querySelector('.board');
@@ -239,6 +292,8 @@ const init = () => {
     placeDisks();
     showBoard();
     enableTouch();
+
+    if (aiMode()) setTimeout(aiPlay, 2000);
 }
 
 window.onload = () => document.fonts.ready.then(init);
