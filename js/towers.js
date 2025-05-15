@@ -27,7 +27,6 @@ const placeDisks = () => {
     let disks = document.querySelectorAll('.disk');
     let positions = [...document.querySelectorAll('.tower:first-child .position')].reverse();
 
-
     disks.forEach((disk, i) => {
 
         let diskRect = disk.getBoundingClientRect();
@@ -107,7 +106,7 @@ const processSwipe = (e) => {
         y = e.clientY;
     }
 
-    console.log(x, y);
+    // console.log(x, y);
 
     // let touch = e.touches[e.touches.length - 1];
     let towers = document.querySelectorAll('.tower');
@@ -157,19 +156,35 @@ const endSwipe = async () => {
     let pos1Rect = position1.getBoundingClientRect();
     let pos2Rect = position2.getBoundingClientRect();
 
-    disk.classList.add('move');
+    // disk.classList.add('move');
 
     if (disk2 != null && disk1 < disk2) {
 
-        disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - pos1Rect.height}px)`;
-        await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+        // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - pos1Rect.height}px)`;
+        // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
         
-        disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42}px)`;
-        await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+        // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42}px)`;
+        // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+
+        let keyframes = [
+            {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+            {transform: `translate(${matrix.m41}px, ${matrix.m42 - pos1Rect.height}px)`},
+            {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+        ];
+
+    let timing = {
+        duration: 300,
+        easing: 'linear',
+        fill: 'forwards'
+    };
+
+    let animation = disk.animate(keyframes, timing);
+
+    await animation.finished;
         
         from.classList.remove('from');
         to.classList.remove('to');
-        disk.classList.remove('move');
+        // disk.classList.remove('move');
 
         enableTouch();
         return; 
@@ -179,18 +194,35 @@ const endSwipe = async () => {
     let offset2 = pos1Rect.left - pos2Rect.left;
     let offset3 = pos1Rect.top - pos2Rect.top;
 
-    disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`;
-    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+    // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`;
+    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
     
-    disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`;
-    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+    // disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`;
+    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
     
-    disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`;
-    await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
-    
+    // disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`;
+    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
+
+    let keyframes = [
+        {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+        {transform: `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`},
+        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`},
+        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`}
+    ];
+
+    let timing = {
+        duration: 500,
+        easing: 'linear',
+        fill: 'forwards'
+    };
+
+    let animation = disk.animate(keyframes, timing);
+
+    await animation.finished;
+
     from.classList.remove('from');
     to.classList.remove('to');
-    disk.classList.remove('move');
+    // disk.classList.remove('move');
 
     delete position1.dataset.disk;
     position2.dataset.disk = disk1;
@@ -216,13 +248,59 @@ const checkWin = (tower) => {
     return true;
 }
 
-const endGame = (tower) => {
+const newGame = async (e, tower, handler) => {
 
+    let board = document.querySelector('.board');
+    let disks = [...document.querySelectorAll('.disk')];
+    let tower0 = document.querySelector('.tower:first-child');
+    let tower0Rect = tower0.getBoundingClientRect();
+    let towerRect = tower.getBoundingClientRect();
+    let offset = towerRect.left - tower0Rect.left;
+
+    board.removeEventListener('touchstart', handler);
+    board.removeEventListener('mousedown', handler);
+
+    await Promise.all(disks.map(disk => new Promise(resolve => {
+        disk.classList.add('invisible');
+        disk.addEventListener('transitionend', resolve, {once: true});
+    })));
+
+    await Promise.all(disks.map(disk => new Promise(resolve => {
+
+            let style = window.getComputedStyle(disk);
+            let matrix = new DOMMatrix(style.transform);
+
+            let animation = disk.animate([
+                {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+                {transform: `translate(${matrix.m41 - offset}px, ${matrix.m42}px)`}
+            ], {
+                duration: 1,
+                fill: 'forwards'
+            });
+            
+            animation.addEventListener('finish', resolve, {once: true});
+    })));
+
+    await Promise.all(disks.map(disk => new Promise(resolve => {
+        disk.classList.remove('invisible');
+        disk.addEventListener('transitionend', resolve, {once: true});
+    })));
+
+    enableTouch();
+}
+
+const endGame = async (tower) => {
+
+    let board = document.querySelector('.board');
+    let handler = (e) => newGame(e, tower, handler);
+  
+    board.addEventListener('touchstart', handler);
+    board.addEventListener('mousedown', handler);
 }
 
 const aiPlay = async () => {
 
-    const solvePuzzle =  (n, source, destination, auxiliary) => {
+    const solvePuzzle = (n, source, destination, auxiliary) => {
 
         if (n == 0) return;
     
@@ -264,9 +342,9 @@ const aiMode = () => {
     let urlParams = new URLSearchParams(queryString);
     let mode = urlParams.get('mode');
     
-    // return mode == 'ai';
+    return mode == 'ai';
 
-    return true;
+    // return true;
 }
 
 const enableTouch = () => {
@@ -293,7 +371,7 @@ const init = () => {
     showBoard();
     enableTouch();
 
-    if (aiMode()) setTimeout(aiPlay, 2000);
+    // if (aiMode()) setTimeout(aiPlay, 2000);
 }
 
 window.onload = () => document.fonts.ready.then(init);

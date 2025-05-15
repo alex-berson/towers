@@ -159,7 +159,7 @@ body {
 
     /* box-sizing: border-box; */
     /* border: 1px solid black; */
-    /* transition: transform 0.1s linear; */
+    transition: opacity 0.5s linear;
 }
 
 #disk1 {
@@ -202,9 +202,13 @@ body {
     width: calc(var(--board-size) / 3 * 0.45);
 }
 
-.move {
-    transition: transform 0.15s linear;
+.invisible {
+    opacity: 0;
 }
+
+/* .move {
+    transition: transform 0.15s linear;
+} */
 
 @media (min-width: 460px) and (min-height: 460px) {
 
