@@ -1,5 +1,5 @@
-const DISKS = 8;
-const TOWERS = 3;
+const N_DISKS = 8;
+const N_TOWERS = 3;
 
 const showBoard = () => document.body.classList.add('visible');
 
@@ -7,19 +7,17 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const setBoardSize = () => {
 
+    // let cssBoardWidth = 1;
     let minSide = window.innerHeight > window.innerWidth ? window.innerWidth : window.innerHeight;
-    let cssBoardSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--board-size')) / 100;
-    let boardSize = Math.ceil(minSide * cssBoardSize / TOWERS) * TOWERS;
+    // let cssBoardWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--board-width')) / 100;
+    let boardWidth = Math.floor(minSide / N_TOWERS) * N_TOWERS;
+    // let mediaQuery = window.matchMedia('(min-width: 460px) and (min-height: 460px) and (orientation: landscape)');
+    let mediaQuery = window.matchMedia('(min-width: 460px) and (min-height: 460px)');
+    let aspectRatio = mediaQuery.matches ? 0.5 : 0.75;
+    let boardHeight = Math.round(boardWidth * aspectRatio / (N_DISKS + 2)) * (N_DISKS + 2);
 
-    document.documentElement.style.setProperty('--board-size', `${boardSize}px`);
-}
-
-const disableTapZoom = () => {
-
-    const preventDefault = (e) => e.preventDefault();
-
-    document.body.addEventListener('touchstart', preventDefault, {passive: false});
-    document.body.addEventListener('mousedown', preventDefault, {passive: false});
+    document.documentElement.style.setProperty('--board-width', `${boardWidth}px`);
+    document.documentElement.style.setProperty('--board-height', `${boardHeight}px`);
 }
 
 const placeDisks = () => {
@@ -38,6 +36,31 @@ const placeDisks = () => {
         positions[i].dataset.disk = i;
 
         disk.style.transform = `translate(${offsetLeft}px, ${offsetTop}px)`;
+    });
+}
+
+const resetDisks = () => {
+
+    let disks = document.querySelectorAll('.disk');
+
+    disks.forEach((disk, i) => {
+
+        let position = document.querySelector(`[data-disk='${i}']`);
+        let style = window.getComputedStyle(disk);
+        let matrix = new DOMMatrix(style.transform);
+        let diskRect = disk.getBoundingClientRect();
+        let positionRect = position.getBoundingClientRect();       
+        let offsetPlus = (positionRect.width - diskRect.width) / 2;
+        let offsetLeft = positionRect.left - diskRect.left + offsetPlus;
+        let offsetTop = positionRect.top - diskRect.top;
+
+        disk.animate([
+            {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+            {transform: `translate(${matrix.m41 + offsetLeft}px, ${matrix.m42 + offsetTop}px)`}
+        ], {
+            duration: 0,
+            fill: 'forwards'
+        });
     });
 }
 
@@ -67,7 +90,7 @@ const getDisk = (tower) => {
 
 const startSwipe = (e) => {
 
-    if (aiMode()) return;
+    // if (aiMode()) return;
 
     let x,y;
     let board = document.querySelector('.board');
@@ -90,8 +113,10 @@ const startSwipe = (e) => {
 
     board.addEventListener('touchmove', processSwipe);
     board.addEventListener('touchend', endSwipe);
-    board.addEventListener('mousemove', processSwipe);
-    board.addEventListener('mouseup', endSwipe);
+    board.addEventListener('touchcancel', endSwipe);
+
+    document.addEventListener('mousemove', processSwipe);
+    document.addEventListener('mouseup', endSwipe);
 }
 
 const processSwipe = (e) => {
@@ -124,22 +149,41 @@ const processSwipe = (e) => {
 
 const endSwipe = async () => {
 
+    const maxLength = () => {
+
+        let towers = document.querySelectorAll('.tower');
+        let position1 = towers[0].querySelector('.position:last-child');
+        let position2 = towers[2].querySelector('.position:last-child');
+        let pos1Rect = position1.getBoundingClientRect();
+        let pos2Rect = position2.getBoundingClientRect();
+        let boardRect = board.getBoundingClientRect();
+        let offset1 = pos1Rect.top - boardRect.top + pos1Rect.height;
+        let offset2 = pos1Rect.left - pos2Rect.left;
+        let offset3 = pos2Rect.top - boardRect.top + pos2Rect.height;
+        let length = Math.abs(offset1) + Math.abs(offset2) + Math.abs(offset3);
+
+        return length;
+    }
+
     let board = document.querySelector('.board');
     let from = document.querySelector('.from');
     let to = document.querySelector('.to');
-    let towers = document.querySelectorAll('.tower');
+    // let towers = document.querySelectorAll('.tower');
 
     board.removeEventListener('touchmove', processSwipe);
     board.removeEventListener('touchend', endSwipe);
-    board.removeEventListener('mousemove', processSwipe);
-    board.removeEventListener('mouseup', endSwipe);
+    document.removeEventListener('mousemove', processSwipe);
+    document.removeEventListener('mouseup', endSwipe);
 
-    if (to == null) {
-        towers.forEach(tower => tower.classList.remove('from'));
-        return;
-    }
+    if (from == null) return;
 
-    disableTouch();
+    from.classList.remove('from');
+
+    if (to == null) return;
+
+    to.classList.remove('to');
+
+    // disableTouch();
 
     let [position1, disk1] = getDisk(from);
     let [position2, disk2] = getDisk(to);
@@ -150,6 +194,37 @@ const endSwipe = async () => {
 
     let disks = document.querySelectorAll('.disk');
     let disk = disks[disk1];
+    // let style = window.getComputedStyle(disk);
+    // let matrix = new DOMMatrix(style.transform);
+    // let boardRect = board.getBoundingClientRect();
+    // let pos1Rect = position1.getBoundingClientRect();
+    // let pos2Rect = position2.getBoundingClientRect();
+
+    let animations = disk.getAnimations();
+    // let hasRunningAnimation = animations.some(anim => anim.playState == 'running');
+    let runningAnimations = animations.filter(anim => anim.playState == 'running');
+
+    // if (hasRunningAnimation) {
+    //     console.log('Animation is running');
+    //     return;
+    // }
+    
+    if (runningAnimations.length > 0) {
+
+        console.log('Animation is running');
+
+        // return;
+
+        let start = performance.now();
+
+        await Promise.all(runningAnimations.map(anim => anim.finished)); 
+                
+        let end = performance.now();
+        let time = Math.floor((end - start));
+
+        console.log(time);
+    }
+
     let style = window.getComputedStyle(disk);
     let matrix = new DOMMatrix(style.transform);
     let boardRect = board.getBoundingClientRect();
@@ -172,27 +247,44 @@ const endSwipe = async () => {
             {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
         ];
 
-    let timing = {
-        duration: 300,
-        easing: 'linear',
-        fill: 'forwards'
-    };
+        let timing = {
+            duration: 300,
+            easing: 'linear',
+            fill: 'forwards'
+        };
 
-    let animation = disk.animate(keyframes, timing);
+        let animation = disk.animate(keyframes, timing);
 
-    await animation.finished;
-        
-        from.classList.remove('from');
-        to.classList.remove('to');
-        // disk.classList.remove('move');
+        // await animation.finished;
+            
+            // from.classList.remove('from');
+            // to.classList.remove('to');
+            // disk.classList.remove('move');
 
-        enableTouch();
-        return; 
+            // enableTouch();
+            return; 
     }
+
+    const MAX_DURATION = 400;
 
     let offset1 = pos1Rect.top - boardRect.top + pos1Rect.height;
     let offset2 = pos1Rect.left - pos2Rect.left;
     let offset3 = pos1Rect.top - pos2Rect.top;
+
+    let length = Math.abs(offset1) + Math.abs(offset2) + Math.abs(pos2Rect.top - boardRect.top + pos2Rect.height);
+    let duration1 = aiMode() ? 0.33 : Math.abs(offset1) / length;
+    let duration2 =  aiMode() ? 0.33 : Math.abs(offset2) / length;
+    let totalDuration = length / maxLength() * MAX_DURATION;
+
+    // let duration3 = Math.abs(pos2Rect.top - boardRect.top + pos2Rect.height) / length;
+
+    // console.log(duration1, duration2, duration3);
+    // console.log(duration1, duration2);
+
+    // console.log(length, maxLength(), totalDuration);
+
+    delete position1.dataset.disk;
+    position2.dataset.disk = disk1;
 
     // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`;
     // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
@@ -204,30 +296,33 @@ const endSwipe = async () => {
     // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
 
     let keyframes = [
-        {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
-        {transform: `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`},
-        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`},
-        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`}
+        {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`, offset: 0},
+        {transform: `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`, offset: duration1},
+        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`, offset: duration1 + duration2},
+        {transform: `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`, offset: 1}
     ];
 
     let timing = {
-        duration: 500,
+        duration: aiMode() ? MAX_DURATION : totalDuration,
         easing: 'linear',
         fill: 'forwards'
     };
 
-    let animation = disk.animate(keyframes, timing);
+    disk.animate(keyframes, timing);
 
-    await animation.finished;
+    // let animation = disk.animate(keyframes, timing);
+    // await animation.finished;
 
-    from.classList.remove('from');
-    to.classList.remove('to');
+    // from.classList.remove('from');
+    // to.classList.remove('to');
     // disk.classList.remove('move');
 
-    delete position1.dataset.disk;
-    position2.dataset.disk = disk1;
+    // delete position1.dataset.disk;
+    // position2.dataset.disk = disk1;
 
-    checkWin(to) ? endGame(to) : enableTouch();
+    // checkWin(to) ? endGame(to) : enableTouch();
+
+    if (checkWin(to)) endGame(to);
 }
 
 const checkWin = (tower) => {
@@ -240,7 +335,7 @@ const checkWin = (tower) => {
     
     for (let i = 0; i < positions.length; i++) {
         
-        if (Number(positions[i].dataset.disk) != DISKS - i - 1) {
+        if (Number(positions[i].dataset.disk) != N_DISKS - i - 1) {
             return false;
         }
     }
@@ -256,9 +351,15 @@ const newGame = async (e, tower, handler) => {
     let tower0Rect = tower0.getBoundingClientRect();
     let towerRect = tower.getBoundingClientRect();
     let offset = towerRect.left - tower0Rect.left;
+    let positions = tower.querySelectorAll('.position');
+    let positions0 = [...tower0.querySelectorAll('.position')].reverse();
 
     board.removeEventListener('touchstart', handler);
     board.removeEventListener('mousedown', handler);
+
+    positions.forEach(position => delete position.dataset.disk); 
+
+    positions0.forEach((position, i) =>  position.dataset.disk = i);
 
     await Promise.all(disks.map(disk => new Promise(resolve => {
         disk.classList.add('invisible');
@@ -286,13 +387,18 @@ const newGame = async (e, tower, handler) => {
         disk.addEventListener('transitionend', resolve, {once: true});
     })));
 
-    enableTouch();
+    aiMode() ? setTimeout(aiPlay, 1000) : enableTouch();
+
+    // if (aiMode()) setTimeout(aiPlay, 1000);
 }
 
 const endGame = async (tower) => {
 
+    const handler = (e) => newGame(e, tower, handler);
+
     let board = document.querySelector('.board');
-    let handler = (e) => newGame(e, tower, handler);
+
+    disableTouch();
   
     board.addEventListener('touchstart', handler);
     board.addEventListener('mousedown', handler);
@@ -317,7 +423,7 @@ const aiPlay = async () => {
 
     board.classList.add('ai');
 
-    solvePuzzle(DISKS, 0, 2, 1);
+    solvePuzzle(N_DISKS, 0, 2, 1);
 
     let start = performance.now();
 
@@ -327,7 +433,7 @@ const aiPlay = async () => {
         towers[move[1]].classList.add('to');
         
         await endSwipe();
-        // await sleep(200);
+        // await sleep(100);
     }
 
     let end = performance.now();
@@ -347,6 +453,16 @@ const aiMode = () => {
     // return true;
 }
 
+const handleRotation = () => {
+
+    let mediaQuery = matchMedia('(orientation: landscape)');
+
+    mediaQuery.addEventListener('change', () => {
+        setBoardSize();
+        resetDisks();
+    });
+}
+
 const enableTouch = () => {
 
     let board = document.querySelector('.board');
@@ -363,15 +479,23 @@ const disableTouch = () => {
     board.removeEventListener('mousedown', startSwipe);
 }
 
+const disableTapZoom = () => {
+
+    const preventDefault = (e) => e.preventDefault();
+
+    document.body.addEventListener('touchstart', preventDefault, {passive: false});
+    document.body.addEventListener('mousedown', preventDefault, {passive: false});
+}
+
 const init = () => {
 
     disableTapZoom();
-    // setBoardSize(); 
+    handleRotation();
+    setBoardSize();
     placeDisks();
     showBoard();
-    enableTouch();
 
-    // if (aiMode()) setTimeout(aiPlay, 2000);
+    aiMode() ? setTimeout(aiPlay, 1000) : enableTouch();
 }
 
 window.onload = () => document.fonts.ready.then(init);
