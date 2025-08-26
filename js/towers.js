@@ -7,14 +7,11 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const setBoardSize = () => {
 
-    // let cssBoardWidth = 1;
     let minSide = window.innerHeight > window.innerWidth ? window.innerWidth : window.innerHeight;
-    // let cssBoardWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--board-width')) / 100;
-    let boardWidth = Math.floor(minSide / N_TOWERS) * N_TOWERS;
-    // let mediaQuery = window.matchMedia('(min-width: 460px) and (min-height: 460px) and (orientation: landscape)');
-    let mediaQuery = window.matchMedia('(min-width: 460px) and (min-height: 460px)');
-    let aspectRatio = mediaQuery.matches ? 0.5 : 0.75;
-    let boardHeight = Math.round(boardWidth * aspectRatio / (N_DISKS + 2)) * (N_DISKS + 2);
+    let aspectRatioWidth = Number(getComputedStyle(document.documentElement).getPropertyValue('--aspect-ratio-width'));
+    let aspectRatioHeight = Number(getComputedStyle(document.documentElement).getPropertyValue('--aspect-ratio-height'));
+    let boardWidth = Math.floor(minSide * aspectRatioWidth / N_TOWERS) * N_TOWERS;
+    let boardHeight = Math.round(boardWidth * aspectRatioHeight / (N_DISKS + 2)) * (N_DISKS + 2);
 
     document.documentElement.style.setProperty('--board-width', `${boardWidth}px`);
     document.documentElement.style.setProperty('--board-height', `${boardHeight}px`);
@@ -24,6 +21,7 @@ const placeDisks = () => {
 
     let disks = document.querySelectorAll('.disk');
     let positions = [...document.querySelectorAll('.tower:first-child .position')].reverse();
+    // let positions = [...document.querySelectorAll('.tower:nth-child(3) .position')].reverse();
 
     disks.forEach((disk, i) => {
 
@@ -39,115 +37,79 @@ const placeDisks = () => {
     });
 }
 
-const resetDisks = () => {
-
-    let disks = document.querySelectorAll('.disk');
-
-    disks.forEach((disk, i) => {
-
-        let position = document.querySelector(`[data-disk='${i}']`);
-        let style = window.getComputedStyle(disk);
-        let matrix = new DOMMatrix(style.transform);
-        let diskRect = disk.getBoundingClientRect();
-        let positionRect = position.getBoundingClientRect();       
-        let offsetPlus = (positionRect.width - diskRect.width) / 2;
-        let offsetLeft = positionRect.left - diskRect.left + offsetPlus;
-        let offsetTop = positionRect.top - diskRect.top;
-
-        disk.animate([
-            {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
-            {transform: `translate(${matrix.m41 + offsetLeft}px, ${matrix.m42 + offsetTop}px)`}
-        ], {
-            duration: 0,
-            fill: 'forwards'
-        });
-    });
-}
-
-// const getTower = (x, y) => {
-
-//     let towers = [...document.querySelectorAll('.tower')];
-
-//     for (let [i, tower] of towers.entries()) {
-
-//         let towerRect = tower.getBoundingClientRect();
-
-//         if (x >= towerRect.left && x <= towerRect.right && y >= towerRect.top && y <= towerRect.bottom) {
-//             return i;
-//         }
-//     }
-
-//     return null;
-// }
-
-const getDisk = (tower) => {
+const getTopDisk = (tower) => {
 
     let positions = [...tower.querySelectorAll('.position')];
     let topPosition = positions.find(pos => pos.dataset.disk != undefined);
 
-    return topPosition ? [topPosition, topPosition.dataset.disk] : [positions[positions.length - 1], null];
+    return topPosition ? [topPosition, Number(topPosition.dataset.disk)] :
+                         [positions[positions.length - 1], null];
 }
 
 const startSwipe = (e) => {
-
-    // if (aiMode()) return;
-
-    let x,y;
+    
     let board = document.querySelector('.board');
+    let source = document.querySelector('.source');
 
-    if (e.type == 'touchstart') {
-        x = e.touches[e.touches.length - 1].clientX;
-        y = e.touches[e.touches.length - 1].clientY;
-    } else {
-        x = e.clientX;
-        y = e.clientY;
-    }
+    if (source != null) return;
 
-    // let touch = e.touches[e.touches.length - 1];
-    // let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    let x = e.type == 'touchstart' ? e.changedTouches[0].clientX : e.clientX;
+    let y = e.type == 'touchstart' ? e.changedTouches[0].clientY : e.clientY;
     let elements = document.elementsFromPoint(x, y);
     let tower = [...elements].find(element => element.classList.contains('tower'));
-    let [_, disk] = getDisk(tower);
+    let [_, disk] = getTopDisk(tower);
 
-    if (disk != null) tower.classList.add('from');
+    if (disk == null) return;
+
+    tower.classList.add('source');
+
+    if (e.type == 'touchstart') {
+        board.dataset.touchID = e.changedTouches[0].identifier;
+    }
 
     board.addEventListener('touchmove', processSwipe);
-    board.addEventListener('touchend', endSwipe);
-    board.addEventListener('touchcancel', endSwipe);
+    board.addEventListener('touchend', makeMove);
+    board.addEventListener('touchcancel', makeMove);
 
     document.addEventListener('mousemove', processSwipe);
-    document.addEventListener('mouseup', endSwipe);
+    document.addEventListener('mouseup', makeMove);
 }
 
 const processSwipe = (e) => {
 
     let x,y;
+    let board = document.querySelector('.board');
 
     if (e.type == 'touchmove') {
-        x = e.touches[e.touches.length - 1].clientX;
-        y = e.touches[e.touches.length - 1].clientY;
+
+        let touchID = Number(board.dataset.touchID);
+        let touch = [...e.changedTouches].find(touch => touch.identifier == touchID);
+
+        if (!touch) return;
+
+        x = touch.clientX;
+        y = touch.clientY;
+
     } else {
         x = e.clientX;
         y = e.clientY;
     }
 
-    // console.log(x, y);
-
-    // let touch = e.touches[e.touches.length - 1];
     let towers = document.querySelectorAll('.tower');
-    let from = document.querySelector('.from');
-    // let elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+    let source = document.querySelector('.source');
     let elements = document.elementsFromPoint(x, y);
     let tower = [...elements].find(element => element.classList.contains('tower'));
 
-    towers.forEach(tower => tower.classList.remove('to'));
+    towers.forEach(tower => tower.classList.remove('destination'));
 
-    if (tower != null && from != null && !tower.classList.contains('from')) {
-        tower.classList.add('to');
+    if (tower != null && source != null && !tower.classList.contains('source')) {
+        tower.classList.add('destination');
     }
 }
 
-const endSwipe = async () => {
+const makeMove = async (e) => {
+
+    const MAX_DURATION = 400;
 
     const maxLength = () => {
 
@@ -166,27 +128,32 @@ const endSwipe = async () => {
     }
 
     let board = document.querySelector('.board');
-    let from = document.querySelector('.from');
-    let to = document.querySelector('.to');
-    // let towers = document.querySelectorAll('.tower');
+    let source = document.querySelector('.source');
+    let destination = document.querySelector('.destination');
+
+    if (e &&
+        e.type == 'touchend' && 
+        e.changedTouches[0].identifier != Number(board.dataset.touchID) &&
+        e.touches.length != 0) {
+        return;
+    }
 
     board.removeEventListener('touchmove', processSwipe);
-    board.removeEventListener('touchend', endSwipe);
+    board.removeEventListener('touchend', makeMove);
+    board.removeEventListener('touchcancel', makeMove);
     document.removeEventListener('mousemove', processSwipe);
-    document.removeEventListener('mouseup', endSwipe);
+    document.removeEventListener('mouseup', makeMove);
 
-    if (from == null) return;
+    if (source == null) return;
 
-    from.classList.remove('from');
+    source.classList.remove('source');
 
-    if (to == null) return;
+    if (destination == null) return;
 
-    to.classList.remove('to');
+    destination.classList.remove('destination');
 
-    // disableTouch();
-
-    let [position1, disk1] = getDisk(from);
-    let [position2, disk2] = getDisk(to);
+    let [position1, disk1] = getTopDisk(source);
+    let [position2, disk2] = getTopDisk(destination);
 
     if (disk2 != null) {
         position2 = position2.previousElementSibling;
@@ -194,36 +161,10 @@ const endSwipe = async () => {
 
     let disks = document.querySelectorAll('.disk');
     let disk = disks[disk1];
-    // let style = window.getComputedStyle(disk);
-    // let matrix = new DOMMatrix(style.transform);
-    // let boardRect = board.getBoundingClientRect();
-    // let pos1Rect = position1.getBoundingClientRect();
-    // let pos2Rect = position2.getBoundingClientRect();
-
     let animations = disk.getAnimations();
-    // let hasRunningAnimation = animations.some(anim => anim.playState == 'running');
-    let runningAnimations = animations.filter(anim => anim.playState == 'running');
-
-    // if (hasRunningAnimation) {
-    //     console.log('Animation is running');
-    //     return;
-    // }
+    let runningAnimations = animations.filter(animation => animation.playState == 'running');
     
-    if (runningAnimations.length > 0) {
-
-        console.log('Animation is running');
-
-        // return;
-
-        let start = performance.now();
-
-        await Promise.all(runningAnimations.map(anim => anim.finished)); 
-                
-        let end = performance.now();
-        let time = Math.floor((end - start));
-
-        console.log(time);
-    }
+    if (runningAnimations.length > 0) return;
 
     let style = window.getComputedStyle(disk);
     let matrix = new DOMMatrix(style.transform);
@@ -231,15 +172,7 @@ const endSwipe = async () => {
     let pos1Rect = position1.getBoundingClientRect();
     let pos2Rect = position2.getBoundingClientRect();
 
-    // disk.classList.add('move');
-
     if (disk2 != null && disk1 < disk2) {
-
-        // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - pos1Rect.height}px)`;
-        // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
-        
-        // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42}px)`;
-        // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
 
         let keyframes = [
             {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
@@ -253,19 +186,10 @@ const endSwipe = async () => {
             fill: 'forwards'
         };
 
-        let animation = disk.animate(keyframes, timing);
+        disk.animate(keyframes, timing);
 
-        // await animation.finished;
-            
-            // from.classList.remove('from');
-            // to.classList.remove('to');
-            // disk.classList.remove('move');
-
-            // enableTouch();
-            return; 
+        return;
     }
-
-    const MAX_DURATION = 400;
 
     let offset1 = pos1Rect.top - boardRect.top + pos1Rect.height;
     let offset2 = pos1Rect.left - pos2Rect.left;
@@ -273,27 +197,11 @@ const endSwipe = async () => {
 
     let length = Math.abs(offset1) + Math.abs(offset2) + Math.abs(pos2Rect.top - boardRect.top + pos2Rect.height);
     let duration1 = aiMode() ? 0.33 : Math.abs(offset1) / length;
-    let duration2 =  aiMode() ? 0.33 : Math.abs(offset2) / length;
+    let duration2 = aiMode() ? 0.33 : Math.abs(offset2) / length;
     let totalDuration = length / maxLength() * MAX_DURATION;
-
-    // let duration3 = Math.abs(pos2Rect.top - boardRect.top + pos2Rect.height) / length;
-
-    // console.log(duration1, duration2, duration3);
-    // console.log(duration1, duration2);
-
-    // console.log(length, maxLength(), totalDuration);
 
     delete position1.dataset.disk;
     position2.dataset.disk = disk1;
-
-    // disk.style.transform = `translate(${matrix.m41}px, ${matrix.m42 - offset1}px)`;
-    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
-    
-    // disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset1}px)`;
-    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
-    
-    // disk.style.transform = `translate(${matrix.m41 - offset2}px, ${matrix.m42 - offset3}px)`;
-    // await new Promise(resolve => disk.addEventListener('transitionend', resolve, {once: true}));
 
     let keyframes = [
         {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`, offset: 0},
@@ -308,42 +216,63 @@ const endSwipe = async () => {
         fill: 'forwards'
     };
 
-    disk.animate(keyframes, timing);
+    let animation = disk.animate(keyframes, timing);
 
-    // let animation = disk.animate(keyframes, timing);
-    // await animation.finished;
+    if (gameOver(destination)) {
+        disableTouch();
+        await animation.finished;
+        endGame(destination);
+        return;
+    }
 
-    // from.classList.remove('from');
-    // to.classList.remove('to');
-    // disk.classList.remove('move');
-
-    // delete position1.dataset.disk;
-    // position2.dataset.disk = disk1;
-
-    // checkWin(to) ? endGame(to) : enableTouch();
-
-    if (checkWin(to)) endGame(to);
+    return animation.finished;
 }
 
-const checkWin = (tower) => {
+const gameOver = (tower) => {
 
     let towers = [...document.querySelectorAll('.tower')];
-    let index = [...towers].indexOf(tower);
     let positions = tower.querySelectorAll('.position');
 
-    if (index == 0) return false;
-    
+    if ([...towers].indexOf(tower) == 0) return false;
+
     for (let i = 0; i < positions.length; i++) {
-        
-        if (Number(positions[i].dataset.disk) != N_DISKS - i - 1) {
-            return false;
-        }
+        if (Number(positions[i].dataset.disk) != N_DISKS - i - 1) return false;
     }
 
     return true;
 }
 
-const newGame = async (e, tower, handler) => {
+const endGame = async (tower) => {
+
+    const handler = (e) => resetGame(e, tower, handler);
+
+    let board = document.querySelector('.board');
+    let chars = [...document.querySelectorAll('.char')]
+
+    await Promise.all(chars.map(async (char, i) => {
+
+        await sleep(200 * i);
+
+        char.classList.add('rotate');
+
+        return new Promise(resolve => {
+            char.addEventListener('transitionend', () => {
+                char.classList.remove('rotate');
+                resolve();
+            }, { once: true });
+        });
+    }));
+
+    board.addEventListener('touchstart', handler);
+    board.addEventListener('mousedown', handler);
+
+
+    // let event = new Event('touchstart'); //
+    // await sleep(1000); //
+    // board.dispatchEvent(event); //
+}
+
+const resetGame = async (e, tower, handler) => {
 
     let board = document.querySelector('.board');
     let disks = [...document.querySelectorAll('.disk')];
@@ -353,93 +282,47 @@ const newGame = async (e, tower, handler) => {
     let offset = towerRect.left - tower0Rect.left;
     let positions = tower.querySelectorAll('.position');
     let positions0 = [...tower0.querySelectorAll('.position')].reverse();
+    let rod = tower.querySelector('.rod');
+    let rod0 = tower0.querySelector('.rod');
 
     board.removeEventListener('touchstart', handler);
     board.removeEventListener('mousedown', handler);
 
     positions.forEach(position => delete position.dataset.disk); 
+    positions0.forEach((position, i) => position.dataset.disk = i);
 
-    positions0.forEach((position, i) =>  position.dataset.disk = i);
+    let rodPromises = [rod, rod0].map((rod, i) => new Promise(resolve => {
 
-    await Promise.all(disks.map(disk => new Promise(resolve => {
-        disk.classList.add('invisible');
-        disk.addEventListener('transitionend', resolve, {once: true});
-    })));
+        rod.classList.add('move');
+        rod.style.transform = `translateX(${offset * (2 * i - 1)}px)`;
 
-    await Promise.all(disks.map(disk => new Promise(resolve => {
+        rod.addEventListener('transitionend', resolve, {once: true});
+    }));
 
-            let style = window.getComputedStyle(disk);
-            let matrix = new DOMMatrix(style.transform);
+    let diskPromises = disks.map(disk => new Promise(resolve => {
 
-            let animation = disk.animate([
-                {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
-                {transform: `translate(${matrix.m41 - offset}px, ${matrix.m42}px)`}
-            ], {
-                duration: 1,
-                fill: 'forwards'
-            });
-            
-            animation.addEventListener('finish', resolve, {once: true});
-    })));
+        let style = window.getComputedStyle(disk);
+        let matrix = new DOMMatrix(style.transform);
+        let animation = disk.animate([
+            {transform: `translate(${matrix.m41}px, ${matrix.m42}px)`},
+            {transform: `translate(${matrix.m41 - offset}px, ${matrix.m42}px)`}
+        ], {
+            duration: 300,
+            fill: 'forwards',
+            easing: 'linear'
+        });
 
-    await Promise.all(disks.map(disk => new Promise(resolve => {
-        disk.classList.remove('invisible');
-        disk.addEventListener('transitionend', resolve, {once: true});
-    })));
+        animation.addEventListener('finish', resolve, {once: true});
+    }));
 
-    aiMode() ? setTimeout(aiPlay, 1000) : enableTouch();
+    await Promise.all([...rodPromises, ...diskPromises]);
 
-    // if (aiMode()) setTimeout(aiPlay, 1000);
-}
+    [rod, rod0].forEach(rod => {
+        rod.classList.remove('move');
+        rod.removeAttribute('style');
+    });
 
-const endGame = async (tower) => {
-
-    const handler = (e) => newGame(e, tower, handler);
-
-    let board = document.querySelector('.board');
-
-    disableTouch();
-  
-    board.addEventListener('touchstart', handler);
-    board.addEventListener('mousedown', handler);
-}
-
-const aiPlay = async () => {
-
-    const solvePuzzle = (n, source, destination, auxiliary) => {
-
-        if (n == 0) return;
-    
-        solvePuzzle(n - 1, source, auxiliary, destination);
-
-        moves.push([source, destination]);
-        
-        solvePuzzle(n - 1, auxiliary, destination, source);
-    }
-
-    let moves = [];
-    let board = document.querySelector('.board');
-    let towers = [...document.querySelectorAll('.tower')];
-
-    board.classList.add('ai');
-
-    solvePuzzle(N_DISKS, 0, 2, 1);
-
-    let start = performance.now();
-
-    for (let move of moves) {
-
-        towers[move[0]].classList.add('from');
-        towers[move[1]].classList.add('to');
-        
-        await endSwipe();
-        // await sleep(100);
-    }
-
-    let end = performance.now();
-    let time = Math.floor((end - start) / 1000);
-
-    console.log(`AI took ${time} seconds to solve the puzzle`);
+    aiMode() ? setTimeout(aiPlay, 500) : enableTouch();
 }
 
 const aiMode = () => {
@@ -447,20 +330,51 @@ const aiMode = () => {
     let queryString = window.location.search;
     let urlParams = new URLSearchParams(queryString);
     let mode = urlParams.get('mode');
-    
+
     return mode == 'ai';
 
     // return true;
 }
 
-const handleRotation = () => {
+const aiPlay = async () => {
 
-    let mediaQuery = matchMedia('(orientation: landscape)');
+    const solvePuzzle = (n, source = 0, auxiliary = 1, destination = 2, moves = []) => {
 
-    mediaQuery.addEventListener('change', () => {
-        setBoardSize();
-        resetDisks();
-    });
+        if (n == 0) return;
+
+        solvePuzzle(n - 1, source, destination, auxiliary, moves);
+
+        moves.push({source, destination});
+
+        solvePuzzle(n - 1, auxiliary, source, destination, moves);
+
+        return moves;
+    }
+
+    let moves = solvePuzzle(N_DISKS);
+    let board = document.querySelector('.board');
+    let towers = [...document.querySelectorAll('.tower')];
+
+    board.classList.add('ai');
+
+    // let start = performance.now(); //
+
+    for (let move of moves) {
+
+    // for (let [i, move] of moves.entries()) {
+
+        towers[move.source].classList.add('source');
+        towers[move.destination].classList.add('destination');
+
+        await makeMove();
+
+        // if (i == 14 || i == 239) await sleep(2000); //
+    }
+
+    // let end = performance.now(); //
+    // let time = Math.floor((end - start) / 1000); //
+
+    // console.log(`AI took ${time} seconds to solve the puzzle`); //
 }
 
 const enableTouch = () => {
@@ -479,18 +393,22 @@ const disableTouch = () => {
     board.removeEventListener('mousedown', startSwipe);
 }
 
-const disableTapZoom = () => {
+const disableScreen = () => {
 
     const preventDefault = (e) => e.preventDefault();
 
-    document.body.addEventListener('touchstart', preventDefault, {passive: false});
-    document.body.addEventListener('mousedown', preventDefault, {passive: false});
+    document.addEventListener('touchstart', preventDefault, {passive: false});
+    document.addEventListener('mousedown', preventDefault, {passive: false});
+}
+
+const registerServiceWorker = () => {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js');
 }
 
 const init = () => {
 
-    disableTapZoom();
-    handleRotation();
+    registerServiceWorker();
+    disableScreen();
     setBoardSize();
     placeDisks();
     showBoard();
