@@ -21,7 +21,6 @@ const placeDisks = () => {
 
     let disks = document.querySelectorAll('.disk');
     let positions = [...document.querySelectorAll('.tower:first-child .position')].reverse();
-    // let positions = [...document.querySelectorAll('.tower:nth-child(3) .position')].reverse();
 
     disks.forEach((disk, i) => {
 
@@ -131,10 +130,8 @@ const makeMove = async (e) => {
     let source = document.querySelector('.source');
     let destination = document.querySelector('.destination');
 
-    if (e &&
-        e.type == 'touchend' && 
-        e.changedTouches[0].identifier != Number(board.dataset.touchID) &&
-        e.touches.length != 0) {
+    if (e && e.type == 'touchend' && e.touches.length != 0 &&
+        e.changedTouches[0].identifier != Number(board.dataset.touchID)) {
         return;
     }
 
@@ -265,11 +262,6 @@ const endGame = async (tower) => {
 
     board.addEventListener('touchstart', handler);
     board.addEventListener('mousedown', handler);
-
-
-    // let event = new Event('touchstart'); //
-    // await sleep(1000); //
-    // board.dispatchEvent(event); //
 }
 
 const resetGame = async (e, tower, handler) => {
@@ -332,8 +324,6 @@ const aiMode = () => {
     let mode = urlParams.get('mode');
 
     return mode == 'ai';
-
-    // return true;
 }
 
 const aiPlay = async () => {
@@ -357,24 +347,13 @@ const aiPlay = async () => {
 
     board.classList.add('ai');
 
-    // let start = performance.now(); //
-
     for (let move of moves) {
-
-    // for (let [i, move] of moves.entries()) {
 
         towers[move.source].classList.add('source');
         towers[move.destination].classList.add('destination');
 
         await makeMove();
-
-        // if (i == 14 || i == 239) await sleep(2000); //
     }
-
-    // let end = performance.now(); //
-    // let time = Math.floor((end - start) / 1000); //
-
-    // console.log(`AI took ${time} seconds to solve the puzzle`); //
 }
 
 const enableTouch = () => {
